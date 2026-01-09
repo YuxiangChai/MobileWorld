@@ -8,7 +8,7 @@ import sys
 from PIL import Image
 
 # Add the UI-TEMPR directory to sys.path to allow importing ui_tempr
-UI_TEMPR_PATH = "/Users/yuxiang/Documents/Research/GUI-Agent/UI-TEMPR"
+UI_TEMPR_PATH = "/home/yuxiang/Documents/UI-TEMPR"
 if UI_TEMPR_PATH not in sys.path:
     sys.path.append(UI_TEMPR_PATH)
 
