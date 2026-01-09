@@ -159,8 +159,8 @@ class TemprAgent(BaseAgent):
                     action_type=ENV_FAIL, text="Failed to get current state"
                 )
 
-        logger.info(f"Current subtask: {self.current_subtask}")
-        logger.info(f"Current state: {self.current_state}")
+        logger.debug(f"Current subtask: {self.current_subtask}")
+        logger.debug(f"Current state: {self.current_state}")
 
         # 2. Planning
         action_instruction = self.tempr.plan(
