@@ -13,6 +13,7 @@ from loguru import logger
 from mobile_world.agents.base import BaseAgent
 from mobile_world.agents.implementations.planner_executor import PlannerExecutorAgentMCP
 from mobile_world.agents.implementations.qwen3vl import Qwen3VLAgentMCP
+from mobile_world.agents.implementations.tempr import TemprAgent
 
 AGENT_CONFIGS = {
     "qwen3vl": {
@@ -23,6 +24,9 @@ AGENT_CONFIGS = {
         "runtime_conf": {
             "history_n_images": 3,
         },
+    },
+    "tempr": {
+        "class": TemprAgent,
     },
 }
 
@@ -137,5 +141,12 @@ def create_agent(
             tools=kwargs["env"].tools,
             api_key=api_key,
             runtime_conf=config["runtime_conf"],
+            **kwargs,
+        )
+    elif agent_type == "tempr":
+        return agent_class(
+            model_name=model_name,
+            llm_base_url=llm_base_url,
+            api_key=api_key,
             **kwargs,
         )
