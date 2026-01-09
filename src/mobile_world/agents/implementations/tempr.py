@@ -152,6 +152,7 @@ class TemprAgent(BaseAgent):
                 self.subtasks,
                 self.essential_states,
                 state_reflection,
+                previous_action_str,
             )
 
             if self.current_state is None:
