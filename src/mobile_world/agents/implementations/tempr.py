@@ -20,6 +20,7 @@ except ImportError:
     Tempr = None
 
 from mobile_world.agents.base import MCPAgent
+from mobile_world.agents.utils.agent_mapping import QWENVL2AW_ACTION_MAP
 from mobile_world.agents.utils.helpers import pil_to_base64
 from mobile_world.runtime.utils.models import ENV_FAIL, JSONAction
 
@@ -232,7 +233,11 @@ class TemprAgent(MCPAgent):
             # Scale coordinates (TEMPR uses 1000x1000 normalization)
             x_abs = int(x / 1000 * width)
             y_abs = int(y / 1000 * height)
-            return {"action_type": "click", "x": x_abs, "y": y_abs}
+            return {
+                "action_type": QWENVL2AW_ACTION_MAP["click"],
+                "x": x_abs,
+                "y": y_abs,
+            }
 
         elif action_type == "long_press":
             x, y = action_dict.get("coordinate", [None, None])
@@ -240,9 +245,11 @@ class TemprAgent(MCPAgent):
                 return {"action_type": "unknown", "text": "Long Press not parsed"}
             x_abs = int(x / 1000 * width)
             y_abs = int(y / 1000 * height)
-            # Duration not standard in MobileWorld JSONAction 'long_press' usually implies default
-            # But we can pass it if supported. Qwen3VL just passes x, y.
-            return {"action_type": "long_press", "x": x_abs, "y": y_abs}
+            return {
+                "action_type": QWENVL2AW_ACTION_MAP["long_press"],
+                "x": x_abs,
+                "y": y_abs,
+            }
 
         elif action_type == "swipe":
             if action_dict.get("coordinate") and action_dict.get("coordinate2"):
@@ -255,7 +262,7 @@ class TemprAgent(MCPAgent):
                 end_y = int(y2 / 1000 * height)
 
                 return {
-                    "action_type": "swipe",
+                    "action_type": QWENVL2AW_ACTION_MAP["swipe"],
                     "start_x": start_x,
                     "start_y": start_y,
                     "end_x": end_x,
@@ -283,7 +290,7 @@ class TemprAgent(MCPAgent):
                     }
 
                 return {
-                    "action_type": "swipe",
+                    "action_type": QWENVL2AW_ACTION_MAP["swipe"],
                     "start_x": start_x,
                     "start_y": start_y,
                     "end_x": end_x,
@@ -294,16 +301,16 @@ class TemprAgent(MCPAgent):
 
         elif action_type == "type":
             text = action_dict.get("text", "")
-            return {"action_type": "type", "text": text}
+            return {"action_type": QWENVL2AW_ACTION_MAP["type"], "text": text}
 
         elif action_type == "system_button":
             button = action_dict.get("button", "")
             if button == "Back":
-                return {"action_type": "back"}
+                return {"action_type": QWENVL2AW_ACTION_MAP["back"]}
             elif button == "Home":
-                return {"action_type": "home"}
+                return {"action_type": QWENVL2AW_ACTION_MAP["home"]}
             elif button == "Enter":
-                return {"action_type": "enter"}
+                return {"action_type": QWENVL2AW_ACTION_MAP["enter"]}
             else:
                 return {
                     "action_type": "unknown",
@@ -315,14 +322,17 @@ class TemprAgent(MCPAgent):
             return {"action_type": "open_app", "app_name": app_name}
 
         elif action_type == "wait":
-            return {"action_type": "wait"}
+            return {"action_type": QWENVL2AW_ACTION_MAP["wait"]}
 
         elif action_type == "terminate":
             status = action_dict.get("status", "")
-            return {"action_type": "terminate", "text": status}
+            return {"action_type": QWENVL2AW_ACTION_MAP["terminate"], "text": status}
 
         elif action_type == "answer":
-            return {"action_type": "answer", "text": action_dict.get("answer", "")}
+            return {
+                "action_type": QWENVL2AW_ACTION_MAP["answer"],
+                "text": action_dict.get("answer", ""),
+            }
 
         elif action_type == "error":
             return {
