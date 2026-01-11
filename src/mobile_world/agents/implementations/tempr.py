@@ -73,13 +73,7 @@ class TemprAgent(BaseAgent):
         self.history_screenshots = []
         self.history_actions = []
         self.history_agent_messages = []
-        self.tempr.step = 0
-        self.tempr.history = {
-            "subtasks": {},
-            "plans": {},
-            "executions": {},
-            "reflections": {},
-        }
+        self.tempr.reset()
         return True
 
     def predict(self, observation: dict) -> tuple[str, JSONAction]:
