@@ -15,7 +15,7 @@ mobile-world env run --dev
 ```
 
 This will:
-- Mount your local `src/` directory to `/app/service/src` in the container
+- Mount your local `src/` directory to `/app/service/src` in the container (Otherwise you can use `--mount-src` without `dev` mode)
 - Allow you to edit code locally and have changes reflected immediately in the container
 - Enable live development without rebuilding the Docker image
 - Automatically enable VNC for visual debugging (accessible via VNC port)
@@ -82,7 +82,7 @@ mobile-world env exec <container_name> --command "ls -la /app/service"
    ```
 
 6. **Inside the container**, you can:
-   - Check logs: `tail -f /app/service/logs/server.log`
+   - Check logs: `tail -f /app/service/logs/server.log`, `tail -f /app/service/logs/server.log`, `tail -f /app/service/logs/server.log`
    - Inspect processes: `ps aux | grep mobile-world`
    - Debug with Python REPL: `uv run python`
    - Run tests: `cd /app/service && uv run pytest`

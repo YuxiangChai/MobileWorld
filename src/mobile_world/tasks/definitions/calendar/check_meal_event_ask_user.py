@@ -18,13 +18,10 @@ class CheckMealEventAskUserTask(BaseTask):
     correct_recipient = "sarah.martinez@greenfield.com"  # Sarah Martinez's email
     contact_name = "Sarah Martinez"
 
-    today = "2025-10-16"
-
     app_names = {"Calendar", "Mail", "Contacts"}
 
     def initialize_task_hook(self, controller: AndroidController) -> bool:
         self.relevant_information = (
-            f"Today is {self.today}."
             f"The contact information for Sarah Martinez can be found in the Contacts app."
         )
 

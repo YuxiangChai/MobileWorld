@@ -17,12 +17,11 @@ class CheckMeetingEventAskUserTask(BaseTask):
     # Contact information from the provided image
     correct_recipient = "sam.smith@gmail.com"  # Sam Smith's email
     contact_name = "Sam Smith"
-
+    
     app_names = {"Calendar", "Mail", "Contacts"}
 
     def initialize_task_hook(self, controller: AndroidController) -> bool:
         self.relevant_information = (
-            f"Today is {self.today}."
             f"The email address for Sam Smith is {self.correct_recipient}. His full name is {self.contact_name}."
             f"Only the GUI agent ask you for the email address of Sam Smith, you should answer the correct email address."
             f"If the GUI agent do not mention the name of Sam Smith, you should refuse to answer."

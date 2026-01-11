@@ -52,23 +52,51 @@ client_lock = Lock()
 class SyncMCPClient:
     """MCP client with sync interface. Uses persistent connection for stdio transports."""
 
-    def __init__(self, url: str | None = None, config: dict | None = None):
+    def __init__(self, url: str | None = None, config: dict | None = None,
+            max_retries: int = 5,
+            retry_delay: float = 10,
+            retry_backoff: float = 2
+        ):
         self.url = url
         self.config = config
         self.tools: list[dict[str, Any]] | None = None
 
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.retry_backoff = retry_backoff
+        
+        self.timeout = 120
+
         self.client = Client(config) if config else None
 
     async def list_tools(self) -> list[dict[str, Any]]:
-        if self.client:
+        if not self.client:
+            return []
+        last_exception = None
+        delay = self.retry_delay
+        for attempt in range(self.max_retries):
             try:
                 async with self.client:
-                    tools_result = await self.client.list_tools()
-                    return [t.model_dump() for t in tools_result]
-
+                    tools_result = await asyncio.wait_for(
+                        self.client.list_tools(),
+                        timeout=self.timeout
+                    )
+                    result = [t.model_dump() for t in tools_result]
+                    if not result or len(result) == 0:
+                        raise ValueError("Empty tools list returned")
+                    logger.info(f"Successfully listed {len(result)} tools on attempt {attempt + 1}")
+                    return result
             except Exception as e:
-                logger.warning(f"Failed to list tools from client: {e}")
-                return []
+                last_exception = e
+                logger.warning(
+                    f"Failed to list tools (attempt {attempt + 1}/{self.max_retries}): {e}"
+                )
+            if attempt < self.max_retries - 1:
+                logger.info(f"Retrying in {delay} seconds...")
+                await asyncio.sleep(delay)
+                delay *= self.retry_backoff
+        error_msg = f"Failed to list tools after {self.max_retries} attempts: {last_exception}"
+        logger.error(error_msg)
         return []
 
     def _run_async_func(self, func: Callable[..., Any]) -> Any:
@@ -92,15 +120,34 @@ class SyncMCPClient:
         name: str,
         arguments: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        if self.client:
+        last_exception = None
+        delay = self.retry_delay
+        
+        for attempt in range(self.max_retries):
             try:
-                async with self.client:
-                    result_content = await self.client.call_tool(name, arguments, timeout=60)
-                    return [t.model_dump() for t in result_content]
+                if self.client:
+                    async with self.client:
+                        result_content = await self.client.call_tool(name, arguments, timeout=self.timeout)
+                        result = [t.model_dump() for t in result_content]
+                        if not result or len(result) == 0:
+                            raise ValueError(f"Empty result from tool {name}")
+                        logger.info(f"Successfully called tool {name} on attempt {attempt + 1}")
+                        return result
+                else:
+                    raise ValueError("No client configured")
+                    
             except Exception as e:
-                logger.warning(f"Failed to call tool {name} from client: {e} {self.config}")
-                return {"result": f"Failed to call tool {name}: {e}"}
-        return {"result": "No client configured"}
+                last_exception = e
+                logger.warning(
+                    f"Failed to call tool {name} (attempt {attempt + 1}/{self.max_retries}): {e}"
+                )
+                if attempt < self.max_retries - 1:
+                    logger.info(f"Retrying in {delay} seconds...")
+                    await asyncio.sleep(delay)
+                    delay *= self.retry_backoff
+        error_msg = f"Failed to call tool {name} after {self.max_retries} attempts: {last_exception}"
+        logger.error(error_msg)
+        return {"result": error_msg}
 
     def call_tool_sync(
         self,

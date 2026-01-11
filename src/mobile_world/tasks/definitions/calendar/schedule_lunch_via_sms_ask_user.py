@@ -33,8 +33,6 @@ class ScheduleLunchViaSmsAskUserTask(BaseTask):
     expected_start_minute = 0
     expected_duration_hours = 1  # 1 hour lunch
 
-    today = "2025-10-16"
-
     app_names = {"Calendar", "Messages"}
 
     def initialize_task_hook(self, controller: AndroidController) -> bool:
@@ -50,7 +48,6 @@ class ScheduleLunchViaSmsAskUserTask(BaseTask):
 
             time.sleep(1)
             logger.info("Successfully injected lunch invitation SMS")
-            self.relevant_information += f" Today is {self.today}."
 
             return True
 
