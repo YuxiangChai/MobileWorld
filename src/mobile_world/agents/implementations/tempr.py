@@ -86,89 +86,12 @@ class TemprAgent(BaseAgent):
         if self.instruction is None:
             raise ValueError("Agent not initialized")
 
-        self.tempr.step += 1
-
         screenshot_pil = observation["screenshot"]
-
-        # TEMPR expects base64 string
-        # We use pil_to_base64 helper from MobileWorld
-        # Note: AITK adapter does resizing. MobileWorld agents usually receive the screenshot
-        # as is. Ideally we should respect TEMPR's expected input size if it's sensitive to it.
-        # But for now we'll use the provided helper which keeps original quality usually.
-        # If strict resizing is needed we can add it.
         current_screenshot_b64 = pil_to_base64(screenshot_pil)
 
-        self.history_screenshots.append(current_screenshot_b64)
-
-        # Logic from AITK to_agent
-
-        # Determine previous screenshot for reflection
-        previous_screenshot_b64 = current_screenshot_b64
-        if len(self.history_screenshots) >= 2:
-            previous_screenshot_b64 = self.history_screenshots[-2]
-
-        # 1. Subtask Generation / Update
-        if self.subtasks is None:
-            # New task logic
-            subtasks, essential_states = self.tempr.generate_subtasks(self.instruction)
-            if subtasks is None:
-                return "Failed to generate subtasks", JSONAction(
-                    action_type=ENV_FAIL, text="Failed to generate subtasks"
-                )
-
-            self.subtasks = subtasks
-            self.essential_states = essential_states
-            self.current_subtask, self.current_state = self.tempr.memorize(
-                subtasks, essential_states
-            )
-
-            if self.current_subtask is None:
-                return "Failed to get the first subtask", JSONAction(
-                    action_type=ENV_FAIL, text="Failed to get first subtask"
-                )
-
-            action_reflection = None
-            previous_action_str = None
-        else:
-            # Existing task logic
-            if self.history_agent_messages:
-                previous_action_str = self.history_agent_messages[-1]
-            else:
-                previous_action_str = None
-
-            previous_action_dict = (
-                self.history_actions[-1] if self.history_actions else None
-            )
-
-            # Reflection
-            action_reflection, state_reflection = self.tempr.reflect(
-                previous_action_dict,  # Pass the dict of previous action
-                self.current_state,
-                current_screenshot_b64,
-                previous_screenshot_b64,
-            )
-
-            self.current_subtask, self.current_state = self.tempr.memorize(
-                self.subtasks,
-                self.essential_states,
-                state_reflection,
-                previous_action_str,
-            )
-
-            if self.current_state is None:
-                return "Failed to get current state from memory", JSONAction(
-                    action_type=ENV_FAIL, text="Failed to get current state"
-                )
-
-        logger.debug(f"Current subtask: {self.current_subtask}")
-        logger.debug(f"Current state: {self.current_state}")
-
-        # 2. Planning
-        action_instruction = self.tempr.plan(
-            self.current_subtask,
-            current_screenshot_b64,
-            action_reflection,
-            previous_action_str,
+        # New simplified logic using Tempr.predict
+        action_dict_raw, action_instruction = self.tempr.predict(
+            self.instruction, current_screenshot_b64
         )
 
         if action_instruction is None:
@@ -176,30 +99,24 @@ class TemprAgent(BaseAgent):
                 action_type=ENV_FAIL, text="Failed to generate plan"
             )
 
-        # 3. Execution
-        action_dict_raw = self.tempr.execute(action_instruction, current_screenshot_b64)
-
         if action_dict_raw is None:
+            # Could be termination or failure
+            if action_instruction and "finished" in action_instruction.lower():
+                # Handle success/fail termination signal from predict
+                return action_instruction, JSONAction(
+                    action_type=QWENVL2AW_ACTION_MAP["terminate"],
+                    text=action_instruction,
+                )
             return "Failed to execute plan", JSONAction(
                 action_type=ENV_FAIL, text="Failed to execute plan"
             )
 
         try:
-            # The AITK code does this: action = action_dict["arguments"]
-            # checking TEMPR source: execute returns the parsed JSON dict directly from <tool_call>
-            # Wait, AITK code says:
-            # action_dict = self.tempr.execute(...)
-            # try: action = action_dict["arguments"]
-            # But in TEMPR source `test_tempr.py` or similar?
-            # In `ui_tempr/tempr.py`: execute returns `action_dict` which is `json.loads(match.group(1).strip())`.
-            # The tool call format in `ui_tempr` prompt is likely `{"name": "...", "arguments": {...}}`.
-            # So `action_dict["arguments"]` seems correct if it follows standard tool call format.
+            # handle action_dict parsing
             if "arguments" in action_dict_raw:
                 action_args = action_dict_raw["arguments"]
             else:
-                # Fallback if it returns the arguments directly
                 action_args = action_dict_raw
-
         except Exception as e:
             logger.error(f"Error parsing action arguments: {e}")
             return f"Error parsing action: {e}", JSONAction(
@@ -208,13 +125,13 @@ class TemprAgent(BaseAgent):
 
         # 4. Convert to MobileWorld Action
         width, height = screenshot_pil.size
+        # The mw_action_dict conversion relies on action_args
         mw_action_dict = self._to_mobile_world_action(action_args, width, height)
 
-        # Store history
+        # Store history (MW legacy)
         self.history_actions.append(action_args)
-        self.history_agent_messages.append(
-            action_instruction
-        )  # Storing the plan instruction as "message" specific to agent
+        self.history_agent_messages.append(action_instruction)
+        self.history_screenshots.append(current_screenshot_b64)
 
         return action_instruction, JSONAction(**mw_action_dict)
 
