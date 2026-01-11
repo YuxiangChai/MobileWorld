@@ -22,7 +22,7 @@ except ImportError:
 from mobile_world.agents.base import BaseAgent
 from mobile_world.agents.utils.agent_mapping import QWENVL2AW_ACTION_MAP
 from mobile_world.agents.utils.helpers import pil_to_base64
-from mobile_world.runtime.utils.models import ENV_FAIL, JSONAction
+from mobile_world.runtime.utils.models import ENV_FAIL, MCP, JSONAction
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,17 @@ class TemprAgent(BaseAgent):
         screenshot_pil = observation["screenshot"]
         current_screenshot_b64 = pil_to_base64(screenshot_pil)
 
+        # Handle feedback from previous steps (ask_user or tool calls)
+        if "ask_user_response" in observation and observation["ask_user_response"]:
+            self.tempr.memory.add_recorded_info(
+                f"User Response: {observation['ask_user_response']}"
+            )
+
+        if "tool_call" in observation and observation["tool_call"]:
+            self.tempr.memory.add_recorded_info(
+                f"Tool Call Result: {json.dumps(observation['tool_call'], ensure_ascii=False)}"
+            )
+
         # New simplified logic using Tempr.predict
         action_dict_raw, action_instruction = self.tempr.predict(
             self.instruction, current_screenshot_b64
@@ -107,6 +118,7 @@ class TemprAgent(BaseAgent):
 
         try:
             # handle action_dict parsing
+            action_name = action_dict_raw.get("name")
             if "arguments" in action_dict_raw:
                 action_args = action_dict_raw["arguments"]
             else:
@@ -115,6 +127,14 @@ class TemprAgent(BaseAgent):
             logger.error(f"Error parsing action arguments: {e}")
             return f"Error parsing action: {e}", JSONAction(
                 action_type=ENV_FAIL, text="Error parsing action arguments"
+            )
+
+        # Handle MCP actions (non-mobile_use)
+        if action_name != "mobile_use":
+            return action_instruction, JSONAction(
+                action_type=MCP,
+                action_json=action_args,
+                action_name=action_name,
             )
 
         # 4. Convert to MobileWorld Action
@@ -229,7 +249,13 @@ class TemprAgent(BaseAgent):
                     "text": f"System button {button} not supported",
                 }
 
-        elif action_type == "open":
+        elif action_type == "ask_user":
+            return {
+                "action_type": QWENVL2AW_ACTION_MAP["ask_user"],
+                "text": action_dict.get("question", "") or action_dict.get("text", ""),
+            }
+
+        elif action_type == "open_app" or action_type == "open":
             app_name = action_dict.get("text", "")
             return {"action_type": "open_app", "app_name": app_name}
 
@@ -243,7 +269,7 @@ class TemprAgent(BaseAgent):
         elif action_type == "answer":
             return {
                 "action_type": QWENVL2AW_ACTION_MAP["answer"],
-                "text": action_dict.get("answer", ""),
+                "text": action_dict.get("answer", "") or action_dict.get("text", ""),
             }
 
         elif action_type == "error":
