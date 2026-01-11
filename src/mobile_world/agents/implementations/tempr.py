@@ -19,7 +19,7 @@ except ImportError:
     print(f"Error: Could not import ui_tempr from {UI_TEMPR_PATH}")
     Tempr = None
 
-from mobile_world.agents.base import BaseAgent
+from mobile_world.agents.base import MCPAgent
 from mobile_world.agents.utils.agent_mapping import QWENVL2AW_ACTION_MAP
 from mobile_world.agents.utils.helpers import pil_to_base64
 from mobile_world.runtime.utils.models import ENV_FAIL, MCP, JSONAction
@@ -27,7 +27,7 @@ from mobile_world.runtime.utils.models import ENV_FAIL, MCP, JSONAction
 logger = logging.getLogger(__name__)
 
 
-class TemprAgent(BaseAgent):
+class TemprAgent(MCPAgent):
     def __init__(
         self,
         model_name: str,
@@ -96,7 +96,7 @@ class TemprAgent(BaseAgent):
 
         # New simplified logic using Tempr.predict
         action_dict_raw, action_instruction = self.tempr.predict(
-            self.instruction, current_screenshot_b64
+            self.instruction, current_screenshot_b64, extra_tools=self.tools
         )
 
         if action_instruction is None:
