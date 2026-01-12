@@ -15,9 +15,7 @@ from mobile_world.runtime.client import (
     AndroidMCPEnvClient,
     scan_finished_tasks,
 )
-from mobile_world.runtime.utils.docker import (
-    discover_backends,
-)
+from mobile_world.runtime.utils.docker import discover_backends
 from mobile_world.runtime.utils.models import ANSWER, ENV_FAIL, FINISHED, UNKNOWN
 from mobile_world.runtime.utils.trajectory_logger import TrajLogger
 
@@ -84,7 +82,9 @@ def _execute_single_task(
         logger.debug(f"current step {step}")
 
         if action.action_type in [ENV_FAIL, FINISHED, UNKNOWN]:
-            logger.debug(f"task terminated in step {step} with action {action.action_type}")
+            logger.debug(
+                f"task terminated in step {step} with action {action.action_type}"
+            )
             terminate = True
         elif action.action_type in [ANSWER]:
             logger.debug(f"answer triggered, execution action {action}")
@@ -160,18 +160,28 @@ def _process_task_on_env(
 
     try:
         with logger.contextualize(thread_id=thread_id, container_name=container_name):
-            logger.info("Processing task '{}' on environment {}", task_name, env.base_url)
+            logger.info(
+                "Processing task '{}' on environment {}", task_name, env.base_url
+            )
             if enable_mcp:
-                assert isinstance(env, AndroidMCPEnvClient), (
-                    f"env must be a AndroidMCPEnvClient, but got {type(env)}"
-                )
+                assert isinstance(
+                    env, AndroidMCPEnvClient
+                ), f"env must be a AndroidMCPEnvClient, but got {type(env)}"
                 try:
                     env.reset_tools(task_type=task_name)
                 except Exception as e:
                     logger.exception(f"Error resetting tools for task {task_name}: {e}")
                     return None
 
-            agent = create_agent(agent_type, model_name, llm_base_url, api_key, env=env, **kwargs)
+            agent = create_agent(
+                agent_type,
+                model_name,
+                llm_base_url,
+                api_key,
+                env=env,
+                log_file_root=log_file_root,
+                **kwargs,
+            )
 
             task_start_time = time.time()
             while True:
@@ -186,7 +196,10 @@ def _process_task_on_env(
                     )
                     break
                 except Exception as e:
-                    if "Device is not healthy" in str(e) and retry_on_device_unhealthy > 0:
+                    if (
+                        "Device is not healthy" in str(e)
+                        and retry_on_device_unhealthy > 0
+                    ):
                         logger.warning("Device is not healthy, retrying...")
                         time.sleep(20)
                         retry_on_device_unhealthy -= 1
@@ -220,7 +233,11 @@ def _process_task_on_env(
 
 
 def _init_env(
-    env_url: str, device: str, step_wait_time: float, suite_family: str, enable_mcp: bool
+    env_url: str,
+    device: str,
+    step_wait_time: float,
+    suite_family: str,
+    enable_mcp: bool,
 ) -> AndroidEnvClient:
     """Initialize the environment."""
     if enable_mcp:
@@ -274,16 +291,23 @@ def run_agent_with_evaluation(
     container_names = None
     if aw_urls is None or len(aw_urls) == 0:
         logger.info("No backend URLs specified, auto-discovering from containers...")
-        aw_urls, container_names = discover_backends(image_filter=env_image, prefix=env_name_prefix)
+        aw_urls, container_names = discover_backends(
+            image_filter=env_image, prefix=env_name_prefix
+        )
         logger.info("Container names: {}", container_names)
         if not aw_urls:
-            logger.error("No backend URLs found. Please start containers or specify --aw-host")
+            logger.error(
+                "No backend URLs found. Please start containers or specify --aw-host"
+            )
             return [], []
 
     logger.info("Using {} backend URL(s): {}", len(aw_urls), aw_urls)
 
     envs = Parallel(
-        n_jobs=min(max_concurrency if max_concurrency is not None else len(aw_urls), len(aw_urls)),
+        n_jobs=min(
+            max_concurrency if max_concurrency is not None else len(aw_urls),
+            len(aw_urls),
+        ),
         backend="threading",
     )(
         delayed(_init_env)(env_url, device, step_wait_time, suite_family, enable_mcp)
@@ -298,13 +322,17 @@ def run_agent_with_evaluation(
     logger.info("Task list: {} ({} tasks)", task_list, len(task_list))
 
     finished_task_list, finished_scores = scan_finished_tasks(log_file_root, task_list)
-    logger.info("Finished task list: {} ({} tasks)", finished_task_list, len(finished_task_list))
+    logger.info(
+        "Finished task list: {} ({} tasks)", finished_task_list, len(finished_task_list)
+    )
 
     task_list = [task for task in task_list if task not in finished_task_list]
     logger.info("Remaining tasks to execute: {} ({} tasks)", task_list, len(task_list))
 
     num_envs = len(envs)
-    logger.info("Distributing {} tasks across {} environment(s)", len(task_list), num_envs)
+    logger.info(
+        "Distributing {} tasks across {} environment(s)", len(task_list), num_envs
+    )
 
     env_queue = Queue[tuple[AndroidEnvClient, str | None]](maxsize=num_envs)
     for i, env in enumerate(envs):
@@ -316,7 +344,9 @@ def run_agent_with_evaluation(
         random.shuffle(task_list)
     if not dry_run:
         task_results = Parallel(
-            n_jobs=min(max_concurrency if max_concurrency is not None else num_envs, num_envs),
+            n_jobs=min(
+                max_concurrency if max_concurrency is not None else num_envs, num_envs
+            ),
             backend="threading",
         )(
             delayed(_process_task_on_env)(
@@ -338,10 +368,14 @@ def run_agent_with_evaluation(
         task_results = []
 
     task_list_with_no_results = [
-        task_name for task_name, task_result in zip(task_list, task_results) if task_result is None
+        task_name
+        for task_name, task_result in zip(task_list, task_results)
+        if task_result is None
     ]
     logger.info(f"Task with no results count: {len(task_list_with_no_results)}")
-    success_task_results = [task_result for task_result in task_results if task_result is not None]
+    success_task_results = [
+        task_result for task_result in task_results if task_result is not None
+    ]
 
     for finished_task_name, finished_score in zip(finished_task_list, finished_scores):
         success_task_results.append(
