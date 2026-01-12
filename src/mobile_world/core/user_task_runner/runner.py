@@ -56,7 +56,9 @@ def _format_action(action) -> str:
     if action.x is not None and action.y is not None:
         parts.append(f"at ({action.x}, {action.y})")
     if action.text:
-        text_preview = action.text[:50] + "..." if len(action.text) > 50 else action.text
+        text_preview = (
+            action.text[:50] + "..." if len(action.text) > 50 else action.text
+        )
         parts.append(f'text="{text_preview}"')
     if action.direction:
         parts.append(f"direction={action.direction}")
@@ -83,7 +85,8 @@ def _print_observation(obs: Observation) -> None:
     table.add_column("Value")
 
     table.add_row(
-        "📸 Screenshot", "[green]captured[/green]" if obs.screenshot else "[red]none[/red]"
+        "📸 Screenshot",
+        "[green]captured[/green]" if obs.screenshot else "[red]none[/red]",
     )
 
     if obs.ask_user_response:
@@ -96,7 +99,9 @@ def _print_observation(obs: Observation) -> None:
         table.add_row("🔧 Tool Call", f"[green]{tool_result}[/green]")
 
     _console.print(
-        Panel(table, title="[bold blue]Observation", border_style="blue", padding=(0, 1))
+        Panel(
+            table, title="[bold blue]Observation", border_style="blue", padding=(0, 1)
+        )
     )
 
 
@@ -147,9 +152,13 @@ def _print_task_end(step: int, action_type: str) -> None:
     _console.print()
 
     status_style = (
-        "green" if action_type == FINISHED else "yellow" if action_type == ANSWER else "red"
+        "green"
+        if action_type == FINISHED
+        else "yellow" if action_type == ANSWER else "red"
     )
-    status_icon = "✅" if action_type == FINISHED else "📝" if action_type == ANSWER else "⚠️"
+    status_icon = (
+        "✅" if action_type == FINISHED else "📝" if action_type == ANSWER else "⚠️"
+    )
 
     _console.print(
         Panel(
@@ -325,7 +334,15 @@ def run_user_task(
         )
         traj_logger = TrajLogger(log_file_root, "user_task")
 
-    agent = create_agent(agent_type, model_name, llm_base_url, api_key, env=env, **kwargs)
+    agent = create_agent(
+        agent_type,
+        model_name,
+        llm_base_url,
+        api_key,
+        env=env,
+        log_file_root=log_file_root,
+        **kwargs,
+    )
 
     start_time = time.time()
     try:

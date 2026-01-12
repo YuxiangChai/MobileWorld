@@ -4,6 +4,9 @@ import json
 import logging
 import os
 import sys
+import time
+from datetime import datetime
+from pathlib import Path
 
 from PIL import Image
 
@@ -34,6 +37,7 @@ class TemprAgent(MCPAgent):
         llm_base_url: str,
         api_key: str = "empty",
         max_try: int = 5,
+        log_file_root: str = None,
         *args,
         os_environ: dict = None,
         **kwargs,
@@ -50,6 +54,7 @@ class TemprAgent(MCPAgent):
             api_key=api_key,
             max_try=max_try,
         )
+        self.log_file_root = log_file_root
         # TEMPR state management
         self.subtasks = None
         self.essential_states = None
@@ -62,6 +67,7 @@ class TemprAgent(MCPAgent):
         self.history_agent_messages = []
 
         self.instruction = None
+        self._history_saved = False
 
     def initialize(self, instruction: str) -> bool:
         super().initialize(instruction)
@@ -74,6 +80,7 @@ class TemprAgent(MCPAgent):
         self.history_actions = []
         self.history_agent_messages = []
         self.tempr.reset()
+        self._history_saved = False
         return True
 
     def predict(self, observation: dict) -> tuple[str, JSONAction]:
@@ -108,6 +115,7 @@ class TemprAgent(MCPAgent):
             # Could be termination or failure
             if action_instruction and "finished" in action_instruction.lower():
                 # Handle success/fail termination signal from predict
+                self._save_history()
                 return action_instruction, JSONAction(
                     action_type=QWENVL2AW_ACTION_MAP["terminate"],
                     text=action_instruction,
@@ -264,6 +272,7 @@ class TemprAgent(MCPAgent):
 
         elif action_type == "terminate":
             status = action_dict.get("status", "")
+            self._save_history()
             return {"action_type": QWENVL2AW_ACTION_MAP["terminate"], "text": status}
 
         elif action_type == "answer":
@@ -283,3 +292,51 @@ class TemprAgent(MCPAgent):
                 "action_type": "unknown",
                 "text": f"Unknown action type: {action_type}",
             }
+
+    def done(self) -> None:
+        """finalize the agent for the current task."""
+        self._save_history()
+        super().done()
+
+    def _save_history(self):
+        """Save the Tempr history to a file."""
+        if self._history_saved:
+            return
+
+        try:
+            history = self.tempr.get_whole_history()
+
+            # Create logs directory
+            if self.log_file_root:
+                log_dir = Path(self.log_file_root) / "user_task"
+            else:
+                log_dir = Path("tempr_logs")
+
+            log_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_instruction = (
+                "".join(
+                    c
+                    for c in (self.instruction or "unknown_task")
+                    if c.isalnum() or c in (" ", "_", "-")
+                )
+                .strip()
+                .replace(" ", "_")[:50]
+            )
+            filename = log_dir / f"tempr_history_{timestamp}_{safe_instruction}.json"
+
+            # Dump JSON
+            # Need to handle potential bytes/non-serializable objects if any?
+            # Tempr history mostly contains strings and dicts, but screenshots might be large base64 strings.
+            # We assume it's safe to dump.
+
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=4, ensure_ascii=False)
+
+            logger.info(f"Tempr history saved to {filename}")
+            self._history_saved = True
+
+        except Exception as e:
+            logger.error(f"Failed to save Tempr history: {e}")
