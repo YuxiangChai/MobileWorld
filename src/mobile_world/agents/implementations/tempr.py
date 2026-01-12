@@ -103,7 +103,14 @@ class TemprAgent(MCPAgent):
 
         # New simplified logic using Tempr.predict
         action_dict_raw, action_instruction = self.tempr.predict(
-            self.instruction, current_screenshot_b64, extra_tools=self.tools
+            self.instruction,
+            current_screenshot_b64,
+            extra_tools=self.tools,
+            ask_user_response=(
+                observation["ask_user_response"]
+                if "ask_user_response" in observation
+                else None
+            ),
         )
 
         if action_instruction is None:
