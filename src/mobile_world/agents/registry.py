@@ -148,5 +148,6 @@ def create_agent(
             model_name=model_name,
             llm_base_url=llm_base_url,
             api_key=api_key,
+            tools=kwargs["env"].tools,
             **kwargs,
         )
