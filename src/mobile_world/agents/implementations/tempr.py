@@ -38,6 +38,7 @@ class TemprAgent(MCPAgent):
         api_key: str = "empty",
         max_try: int = 5,
         log_file_root: str = None,
+        task_name: str = "user_task",
         *args,
         os_environ: dict = None,
         **kwargs,
@@ -55,6 +56,7 @@ class TemprAgent(MCPAgent):
             max_try=max_try,
         )
         self.log_file_root = log_file_root
+        self.task_name = task_name
         # TEMPR state management
         self.subtasks = None
         self.essential_states = None
@@ -315,7 +317,7 @@ class TemprAgent(MCPAgent):
 
             # Create logs directory
             if self.log_file_root:
-                log_dir = Path(self.log_file_root) / "user_task"
+                log_dir = Path(self.log_file_root) / self.task_name
             else:
                 log_dir = Path("tempr_logs")
 

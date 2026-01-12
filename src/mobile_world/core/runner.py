@@ -180,6 +180,7 @@ def _process_task_on_env(
                 api_key,
                 env=env,
                 log_file_root=log_file_root,
+                task_name=task_name,
                 **kwargs,
             )
 
