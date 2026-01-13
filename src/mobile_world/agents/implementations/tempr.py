@@ -25,6 +25,7 @@ except ImportError:
 from mobile_world.agents.base import MCPAgent
 from mobile_world.agents.utils.agent_mapping import QWENVL2AW_ACTION_MAP
 from mobile_world.agents.utils.helpers import pil_to_base64
+from mobile_world.runtime.app_helpers.system import get_device_datetime
 from mobile_world.runtime.utils.models import ENV_FAIL, MCP, JSONAction
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,14 @@ class TemprAgent(MCPAgent):
         self.history_agent_messages = []
         self.tempr.reset()
         self._history_saved = False
+        # Inject device time
+        try:
+            device_dt = get_device_datetime()
+            time_str = device_dt.strftime("%Y-%m-%d %H:%M:%S")
+            self.tempr.memory.add_recorded_info(f"Current Device Time: {time_str}")
+        except Exception as e:
+            logger.warning(f"Failed to get device time for Tempr: {e}")
+
         return True
 
     def predict(self, observation: dict) -> tuple[str, JSONAction]:
